@@ -1,18 +1,20 @@
-# docker-compose.airflow.yml  (Airflow 3.1.0)
-version: "3.9"
-
+# docker-compose.airflow.yml — Airflow 3.1.0
 x-airflow-common: &airflow-common
   image: apache/airflow:3.1.0-python3.11
   environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__CORE__LOAD_EXAMPLES=False
     - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
-    # SimpleAuth 的密码文件放到可持久化目录，重启不丢
-    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/simple_auth_manager_passwords.json.generated
+    # 3.x 默认 SimpleAuth；存放自动生成的账户密码
+    - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE=/opt/airflow/auth/simple_auth_manager_passwords.json.generated
+    # 让 DAG 能连到 Redis（在同一网络下，主机名用 redis）
+    - REDIS_URL=redis://redis:6379/0
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/auth:/opt/airflow/auth
+  networks: [ crawler_net ]
 
 services:
   postgres:
@@ -23,29 +25,33 @@ services:
       - POSTGRES_DB=airflow
     volumes:
       - pg_data:/var/lib/postgresql/data
+    networks: [ crawler_net ]
 
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
-    # 3.x 用 migrate；SimpleAuth 下不再 create 用户
     command: -c "airflow db migrate || airflow db init"
-    depends_on: [postgres]
+    depends_on: [ postgres ]
 
   airflow-api:
     <<: *airflow-common
     command: api-server --port 8080
-    ports: ["8080:8080"]
-    depends_on: [airflow-init]
+    ports: [ "8080:8080" ]
+    depends_on: [ airflow-init ]
 
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
-    depends_on: [airflow-init]
+    depends_on: [ airflow-init ]
 
   airflow-dag-processor:
     <<: *airflow-common
     command: dag-processor
-    depends_on: [airflow-init]
+    depends_on: [ airflow-init ]
 
 volumes:
   pg_data:
+
+networks:
+  crawler_net:
+    external: true

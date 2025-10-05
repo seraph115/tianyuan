@@ -1,0 +1,11 @@
+Scrapy==2.13.3
+scrapy-redis==0.9.1
+scrapy-playwright==0.0.44
+scrapyd==1.5.*
+scrapyd-client==1.0.*
+redis==5.*
+confluent-kafka==2.*
+ujson==5.*
+lxml==5.*
+parsel==1.*
+loguru==0.7.*

@@ -1,4 +1,4 @@
-# docker-compose.yml — Redis + Kafka 4.1.0 (KRaft) + Scrapyd + Gerapy (+ optional crawler)
+# docker-compose.yml — Redis + Kafka 4.1.0 (KRaft) + Scrapy crawler
 services:
   redis:
     image: redis:7-alpine
@@ -35,9 +35,9 @@ services:
     image: apache/kafka:4.1.0
     depends_on: [kafka-setup]
     ports:
-      - "9092:9092"
-      - "29092:29092"
-      - "9093:9093"
+      - "9092:9092"    # 容器内互联/本机直连
+      - "29092:29092"  # 仅本机/外部直连（可选）
+      - "9093:9093"    # controller
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
@@ -56,34 +56,6 @@ services:
     networks:
       - crawler_net
 
-  scrapyd:
-    build:
-      context: ./spider
-      dockerfile: Dockerfile
-    command: ["bash","-lc","mkdir -p /var/lib/scrapyd && scrapyd -l -"]
-    ports:
-      - "6800:6800"
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-    volumes:
-      - scrapyd_data:/var/lib/scrapyd
-      - ./spider/scrapyd.conf:/etc/scrapyd/scrapyd.conf:ro
-    depends_on: [redis, kafka]
-    networks:
-      - crawler_net
-
-  gerapy:
-    platform: linux/amd64
-    image: germey/gerapy:latest
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./gerapy:/app/gerapy
-    depends_on: [scrapyd]
-    networks:
-      - crawler_net
-
-  # 可选：本地直接跑 spider（默认不随 up 启动，避免与 gerapy 调度冲突）
   crawler:
     build:
       context: ./spider
@@ -95,14 +67,12 @@ services:
       - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     depends_on: [redis, kafka]
     command: ["bash","-lc","scrapy crawl example -s LOG_LEVEL=INFO"]
-    profiles: ["manual"]
     networks:
       - crawler_net
 
 volumes:
   redis_data:
   kafka_data:
-  scrapyd_data:
 
 networks:
   crawler_net:
