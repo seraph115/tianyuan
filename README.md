@@ -36,3 +36,25 @@ crawler-platform/
 └─ airflow/
    └─ dags/
       └─ seed_and_recrawl.py            # Airflow DAG：种子投递 + 定期重抓
+
+---
+
+# 0) 先创建共享网络（两份 compose 都会用到）
+docker network create crawler_net || true
+
+# 1) 初始化 Kafka 存储（KRaft）
+docker compose up -d kafka-setup
+
+# 2) 启动 Redis/Kafka/爬虫
+docker compose up -d
+# 按需扩容爬虫
+docker compose up -d --scale crawler=5
+
+# 3) 启动 Airflow
+docker compose -f docker-compose.airflow.yml up -d airflow-init
+docker compose -f docker-compose.airflow.yml up -d
+
+# 4) 打开 Airflow： http://localhost:8080
+# SimpleAuth 会在日志/文件中给出默认账户密码
+docker compose -f docker-compose.airflow.yml logs airflow-api | grep -i password || true
+cat ./airflow/auth/simple_auth_manager_passwords.json.generated || true
