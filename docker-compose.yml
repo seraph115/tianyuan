@@ -1,0 +1,81 @@
+# docker-compose.yml  — Redis + Kafka 4.1.0 (KRaft) + 爬虫
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes:
+      - redis_data:/data
+
+  # 一次性初始化：生成 Cluster ID 并格式化存储（KRaft 必需）
+  kafka-setup:
+    image: apache/kafka:4.1.0
+    volumes:
+      - kafka_data:/var/lib/kafka
+    entrypoint: ["/bin/bash","-lc"]
+    command: >
+      '
+      if [ ! -f "/var/lib/kafka/data/meta.properties" ]; then
+        CLUSTER_ID=$$(/opt/kafka/bin/kafka-storage.sh random-uuid) &&
+        echo $$CLUSTER_ID > /var/lib/kafka/cluster.id &&
+        /opt/kafka/bin/kafka-storage.sh format -t $$CLUSTER_ID -c /opt/kafka/config/kraft/server.properties;
+        echo "Formatted KRaft storage with CLUSTER_ID=$$CLUSTER_ID";
+      else
+        echo "KRaft storage already formatted";
+      fi
+      '
+    restart: "no"
+
+  # Apache Kafka 4.1.0（KRaft 单节点：broker+controller）
+  kafka:
+    image: apache/kafka:4.1.0
+    depends_on:
+      - kafka-setup
+    ports:
+      - "9092:9092"   # 给容器内服务使用（kafka:9092）同时映射到宿主，如需外机访问可改为 29092 方案
+      - "9093:9093"   # controller 端口（通常不对外用）
+    environment:
+      # 基本角色/节点
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+
+      # 监听与对外发布（内外双监听，内网容器走 kafka:9092；宿主机可用 localhost:9092）
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+
+      # KRaft 仲裁（单节点演示；生产建议多控制器）
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      # 必要内置主题的副本/ISR（单节点开发环境必须设为 1）
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      # 数据目录
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+    volumes:
+      - kafka_data:/var/lib/kafka
+
+  # Scrapy 分布式爬虫节点（容器可横向扩容）
+  crawler:
+    build: ./spider
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC_ITEMS=items.out
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    depends_on:
+      - redis
+      - kafka
+    command: ["bash","-lc","scrapy crawl example -s LOG_LEVEL=INFO"]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+volumes:
+  redis_data:
+  kafka_data:
