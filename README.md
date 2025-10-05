@@ -1,12 +1,12 @@
 # Tianyuan Project
 
-## 🕷️ 分布式爬虫平台（Scrapy + Kafka + Airflow）
+## 分布式爬虫平台（Scrapy + Kafka + Airflow）
 
 本项目为一个可扩展的分布式爬虫平台，集成 **Scrapy 爬虫框架**、**Kafka 4.1.0（KRaft 模式）消息队列**、**Redis 缓存队列** 以及 **Airflow 3.1.0 调度系统**。通过容器化部署（Docker Compose），支持多节点爬取、任务调度与数据流式处理，适用于大规模数据采集场景。
 
 ---
 
-### ⚙️ 技术栈
+### 技术栈
 
 | 模块 | 说明 |
 |------|------|
@@ -18,7 +18,7 @@
 
 ---
 
-### 📁 目录结构
+### 目录结构
 
 ```bash
 crawler-platform/
