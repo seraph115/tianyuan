@@ -40,22 +40,20 @@ crawler-platform/
 
 ---
 
-# 0) 先创建共享网络（两份 compose 都会用到）
+# 0) 共享网络（首次）
 docker network create crawler_net || true
 
-# 1) 初始化 Kafka 存储（KRaft）
+# 1) Kafka 初始化（KRaft 格式化）
 docker compose up -d kafka-setup
+docker compose logs -f kafka-setup
 
-# 2) 启动 Redis/Kafka/爬虫
-docker compose up -d
-# 按需扩容爬虫
-docker compose up -d --scale crawler=5
+# 2) 起 Redis / Kafka / Scrapyd / Gerapy
+docker compose up -d redis kafka scrapyd gerapy
 
-# 3) 启动 Airflow
+# 3) （可选）本地直接跑 spider（不经 Gerapy）
+docker compose --profile manual up -d crawler
+
+# 4) 起 Airflow
 docker compose -f docker-compose.airflow.yml up -d airflow-init
 docker compose -f docker-compose.airflow.yml up -d
-
-# 4) 打开 Airflow： http://localhost:8080
-# SimpleAuth 会在日志/文件中给出默认账户密码
-docker compose -f docker-compose.airflow.yml logs airflow-api | grep -i password || true
-cat ./airflow/auth/simple_auth_manager_passwords.json.generated || true
+# Web/API: http://localhost:8080  （SimpleAuth 首启会在日志/airflow/auth 文件夹里给出账号密码）
