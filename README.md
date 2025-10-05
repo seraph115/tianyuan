@@ -28,6 +28,7 @@ crawler-platform/
 │  ├─ Dockerfile                        # Scrapy 镜像构建文件
 │  ├─ requirements.txt                  # Python 依赖包清单
 │  ├─ scrapy.cfg                        # Scrapy 配置入口
+│  ├─ scrapyd.conf
 │  └─ proj/
 │     ├─ settings.py                    # 爬虫全局设置
 │     ├─ pipelines.py                   # 数据处理与存储逻辑
