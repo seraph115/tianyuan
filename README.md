@@ -58,3 +58,6 @@ docker compose --profile manual up -d crawler
 docker compose -f docker-compose.airflow.yml up -d airflow-init
 docker compose -f docker-compose.airflow.yml up -d
 # Web/API: http://localhost:8080  （SimpleAuth 首启会在日志/airflow/auth 文件夹里给出账号密码）
+
+# 5) Gerapy 管理页
+# http://localhost:8000  （默认用户名/密码 admin/admin）
